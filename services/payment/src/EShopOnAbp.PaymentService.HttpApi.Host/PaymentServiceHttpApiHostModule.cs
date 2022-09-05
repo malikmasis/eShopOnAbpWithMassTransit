@@ -1,7 +1,11 @@
+using EShopOnAbp.OrderingService.Orders;
 using EShopOnAbp.PaymentService.DbMigrations;
 using EShopOnAbp.PaymentService.EntityFrameworkCore;
+using EShopOnAbp.PaymentService.EventHandlers;
 using EShopOnAbp.Shared.Hosting.AspNetCore;
 using EShopOnAbp.Shared.Hosting.Microservices;
+using GreenPipes;
+using MassTransit;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.Extensions.Configuration;
@@ -28,8 +32,42 @@ public class PaymentServiceHttpApiHostModule : AbpModule
     {
         Microsoft.IdentityModel.Logging.IdentityModelEventSource.ShowPII = true;
 
-        var hostingEnvironment = context.Services.GetHostingEnvironment();
         var configuration = context.Services.GetConfiguration();
+
+        context.Services.AddMassTransit(x =>
+        {
+            x.AddConsumer<OrderCancelledConsumer>();
+
+            x.AddBus(provider => Bus.Factory.CreateUsingRabbitMq(cfg =>
+            {
+                //TODO remove this or explain it?
+                cfg.UseHealthCheck(provider);
+                //TODO Make it dynamic
+                cfg.Host("rabbitmq://localhost", h =>
+                {
+                    h.Username("guest");
+                    h.Password("guest");
+                });
+                cfg.ReceiveEndpoint("order-service", ep =>
+                {
+                    ep.UseCircuitBreaker(cb =>
+                    {
+                        cb.TrackingPeriod = TimeSpan.FromMinutes(1);
+                        cb.TripThreshold = 15;
+                        cb.ActiveThreshold = 10;
+                        cb.ResetInterval = TimeSpan.FromMinutes(5);
+                    });
+
+                    ep.PrefetchCount = 16;
+                    ep.UseMessageRetry(r => r.Interval(2, 10));
+                    ep.UseRateLimit(1000, TimeSpan.FromMinutes(1));
+
+                    ep.ConfigureConsumer<OrderCancelledConsumer>(provider);
+
+                });
+            }));
+        });
+        context.Services.AddMassTransitHostedService();
 
         JwtBearerConfigurationHelper.Configure(context, "PaymentService");
 
