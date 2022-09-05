@@ -1,10 +1,8 @@
-using EShopOnAbp.OrderingService.Orders;
 using EShopOnAbp.PaymentService.DbMigrations;
 using EShopOnAbp.PaymentService.EntityFrameworkCore;
 using EShopOnAbp.PaymentService.EventHandlers;
 using EShopOnAbp.Shared.Hosting.AspNetCore;
 using EShopOnAbp.Shared.Hosting.Microservices;
-using GreenPipes;
 using MassTransit;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Cors;
@@ -40,14 +38,13 @@ public class PaymentServiceHttpApiHostModule : AbpModule
 
             x.AddBus(provider => Bus.Factory.CreateUsingRabbitMq(cfg =>
             {
-                //TODO remove this or explain it?
-                cfg.UseHealthCheck(provider);
                 //TODO Make it dynamic
                 cfg.Host("rabbitmq://localhost", h =>
                 {
                     h.Username("guest");
                     h.Password("guest");
                 });
+                //TODO remove this or explain it?
                 cfg.ReceiveEndpoint("order-service", ep =>
                 {
                     ep.UseCircuitBreaker(cb =>
@@ -67,7 +64,7 @@ public class PaymentServiceHttpApiHostModule : AbpModule
                 });
             }));
         });
-        context.Services.AddMassTransitHostedService();
+
 
         JwtBearerConfigurationHelper.Configure(context, "PaymentService");
 

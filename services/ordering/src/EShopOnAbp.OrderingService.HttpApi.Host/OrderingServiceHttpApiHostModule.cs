@@ -1,3 +1,4 @@
+using Autofac.Core;
 using EShopOnAbp.OrderingService.DbMigrations;
 using EShopOnAbp.OrderingService.EntityFrameworkCore;
 using EShopOnAbp.OrderingService.Orders;
@@ -6,8 +7,10 @@ using EShopOnAbp.Shared.Hosting.Microservices;
 using MassTransit;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Cors;
+using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using System;
 using System.Collections.Generic;
@@ -57,7 +60,6 @@ public class OrderingServiceHttpApiHostModule : AbpModule
         {
             x.AddBus(provider => Bus.Factory.CreateUsingRabbitMq(config =>
             {
-                config.UseHealthCheck(provider);
                 //TODO make dynamic
                 config.Host("rabbitmq://localhost", h =>
                 {
@@ -69,7 +71,6 @@ public class OrderingServiceHttpApiHostModule : AbpModule
             x.AddRequestClient<OrderCancelledEto>();
 
         });
-        context.Services.AddMassTransitHostedService();
 
         context.Services.AddCors(options =>
         {
