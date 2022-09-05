@@ -1,7 +1,9 @@
 using EShopOnAbp.OrderingService.DbMigrations;
 using EShopOnAbp.OrderingService.EntityFrameworkCore;
+using EShopOnAbp.OrderingService.Orders;
 using EShopOnAbp.Shared.Hosting.AspNetCore;
 using EShopOnAbp.Shared.Hosting.Microservices;
+using MassTransit;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.Extensions.Configuration;
@@ -13,6 +15,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Volo.Abp;
 using Volo.Abp.AspNetCore.Mvc;
+using Volo.Abp.AspNetCore.Mvc.AntiForgery;
 using Volo.Abp.Modularity;
 
 namespace EShopOnAbp.OrderingService;
@@ -27,8 +30,15 @@ public class OrderingServiceHttpApiHostModule : AbpModule
 {
     public override void ConfigureServices(ServiceConfigurationContext context)
     {
+        //TODO remove it
+        Configure<AbpAntiForgeryOptions>(options =>
+        {
+            options.TokenCookie.Expiration = TimeSpan.FromDays(365);
+            options.AutoValidateIgnoredHttpMethods.Add("POST");
+
+        });
+
         var configuration = context.Services.GetConfiguration();
-        var hostingEnvironment = context.Services.GetHostingEnvironment();
 
         JwtBearerConfigurationHelper.Configure(context, "OrderingService");
 
@@ -42,6 +52,24 @@ public class OrderingServiceHttpApiHostModule : AbpModule
                 },
             apiTitle: "Ordering Service API"
         );
+
+        context.Services.AddMassTransit(x =>
+        {
+            x.AddBus(provider => Bus.Factory.CreateUsingRabbitMq(config =>
+            {
+                config.UseHealthCheck(provider);
+                //TODO make dynamic
+                config.Host("rabbitmq://localhost", h =>
+                {
+                    h.Username("guest");
+                    h.Password("guest");
+                });
+            }));
+
+            x.AddRequestClient<OrderCancelledEto>();
+
+        });
+        context.Services.AddMassTransitHostedService();
 
         context.Services.AddCors(options =>
         {

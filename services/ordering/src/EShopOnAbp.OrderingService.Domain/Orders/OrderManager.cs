@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MassTransit;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Volo.Abp;
@@ -11,13 +12,16 @@ public class OrderManager : DomainService
 {
     private readonly IOrderRepository _orderRepository;
     private readonly IDistributedEventBus _distributedEventBus;
+    private readonly IBus _bus;
 
     public OrderManager(
         IOrderRepository orderRepository,
-        IDistributedEventBus distributedEventBus)
+        IDistributedEventBus distributedEventBus,
+        IBus bus)
     {
         _orderRepository = orderRepository;
         _distributedEventBus = distributedEventBus;
+        _bus = bus;
     }
 
     public async Task<Order> CreateOrderAsync(
@@ -102,8 +106,7 @@ public class OrderManager : DomainService
 
         order.SetOrderCancelled();
 
-        // Publish order cancelled event
-        await _distributedEventBus.PublishAsync(new OrderCancelledEto
+        await _bus.Publish(new OrderCancelledEto
         {
             PaymentRequestId = order.PaymentRequestId.GetValueOrDefault(),
             OrderId = order.Id,
@@ -112,6 +115,17 @@ public class OrderManager : DomainService
             Buyer = GetBuyerEto(order.Buyer),
             Items = GetProductItemEtoList(order.OrderItems)
         });
+        
+        // Publish order cancelled event
+        //await _distributedEventBus.PublishAsync(new OrderCancelledEto
+        //{
+        //    PaymentRequestId = order.PaymentRequestId.GetValueOrDefault(),
+        //    OrderId = order.Id,
+        //    OrderDate = order.OrderDate,
+        //    OrderNo = order.OrderNo,
+        //    Buyer = GetBuyerEto(order.Buyer),
+        //    Items = GetProductItemEtoList(order.OrderItems)
+        //});
 
         return await _orderRepository.UpdateAsync(order, autoSave: true);
     }
