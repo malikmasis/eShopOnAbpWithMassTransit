@@ -60,15 +60,12 @@ public class OrderingServiceHttpApiHostModule : AbpModule
         {
             x.AddBus(provider => Bus.Factory.CreateUsingRabbitMq(config =>
             {
-                //TODO make dynamic
                 config.Host("rabbitmq://localhost", h =>
                 {
                     h.Username("guest");
                     h.Password("guest");
                 });
             }));
-
-            x.AddRequestClient<OrderCancelledEto>();
 
         });
 

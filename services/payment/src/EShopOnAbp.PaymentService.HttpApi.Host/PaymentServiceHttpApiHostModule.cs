@@ -38,29 +38,14 @@ public class PaymentServiceHttpApiHostModule : AbpModule
 
             x.AddBus(provider => Bus.Factory.CreateUsingRabbitMq(cfg =>
             {
-                //TODO Make it dynamic
                 cfg.Host("rabbitmq://localhost", h =>
                 {
                     h.Username("guest");
                     h.Password("guest");
                 });
-                //TODO remove this or explain it?
                 cfg.ReceiveEndpoint("order-service", ep =>
                 {
-                    ep.UseCircuitBreaker(cb =>
-                    {
-                        cb.TrackingPeriod = TimeSpan.FromMinutes(1);
-                        cb.TripThreshold = 15;
-                        cb.ActiveThreshold = 10;
-                        cb.ResetInterval = TimeSpan.FromMinutes(5);
-                    });
-
-                    ep.PrefetchCount = 16;
-                    ep.UseMessageRetry(r => r.Interval(2, 10));
-                    ep.UseRateLimit(1000, TimeSpan.FromMinutes(1));
-
                     ep.ConfigureConsumer<OrderCancelledConsumer>(provider);
-
                 });
             }));
         });
